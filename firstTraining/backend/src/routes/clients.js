@@ -44,4 +44,29 @@ router.delete("/:id", (req, res) => {
     });
 });
 
+router.put("/:id", (req, res) => {
+    const id = Number(req.params.id);
+    const { name } = req.body;
+
+    if (Number.isNaN(id)) {
+        return res.status(400).json({error: "invalid id"});
+    }
+
+    if (!name || typeof name !== "string") {
+        return res.status(400).json({error : "name is required"});
+    }
+
+    db.run("UPDATE clients SET name = ? WHERE id = ?", 
+        [name, id],
+        function (err) {
+            if (err) return res.status(500).json({error : err.message});
+            // this.changes = nombre de lignes modifiés
+            if (this.changes === 0) {
+                return res.status(404).res.json({error : "Client Not Found"});
+            }
+            res.json({updated : this.changes, id, name});
+        }
+    );
+});
+
 module.exports = router
