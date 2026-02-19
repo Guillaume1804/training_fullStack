@@ -1,11 +1,12 @@
 const express = require("express");
 const db = require("./database")
 const clientsRoutes = require("./routes/clients");
+const cors = require("cors");
 
 const app = express();
 
 app.use(express.json());
-
+app.use(cors());
 app.use("/clients", clientsRoutes)
 
 app.get("/", (req, res) => {

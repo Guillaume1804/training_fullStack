@@ -11,7 +11,17 @@
     <ul id="clients"></ul>
 
     <script>
-        fetch("http://localhost:3000/clients")
+        fetch("https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev/clients")
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById("clients");
+
+                data.forEach(client => {
+                    const li = document.createElement("li");
+                    li.textContent = client.id + " - " + client.name;
+                    list.appendChild(li);
+                });
+            });
     </script>
 </body>
 </html>
