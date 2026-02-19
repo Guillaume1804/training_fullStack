@@ -8,20 +8,86 @@
 <body>
     <h1>Clients</h1>
 
+    <h2>Ajouter un client</h2>
+
+    <input id="nameInput" placeholder="Nom du client">
+    <button onclick="addClient()">Ajouter</button>
+
     <ul id="clients"></ul>
 
     <script>
-        fetch("https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev/clients")
-            .then(res => res.json())
-            .then(data => {
-                const list = document.getElementById("clients");
+        const API = "https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev";
+
+        async function loadClients() {
+            const list = document.getElementById("clients");
+            list.innerHTML = "";
+            try {
+                const res = await fetch(`${API}/clients`, {
+                    credentials: "include"
+                })
+
+                const data = await res.json();
 
                 data.forEach(client => {
                     const li = document.createElement("li");
-                    li.textContent = client.id + " - " + client.name;
+                    const label = document.createTextNode(`${client.id} - `)
+                    const input = document.createElement("input");
+                    input.value = client.name
+                    const btn = document.createElement("button");
+                    btn.textContent = "Modifier";
+                    btn.addEventListener("click", async () => {
+                        const newName = input.value.trim();
+                        if (!newName) {
+                            alert("Nom vide");
+                            return;
+                        }
+                        await fetch(`${API}/clients/${client.id}`, {
+                            method: "PUT",
+                            credentials:"include",
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({name: newName}),
+                        });
+
+                        await loadClients();
+                    })
+                    li.appendChild(label);
+                    li.appendChild(input);
+                    li.appendChild(btn);
                     list.appendChild(li);
                 });
-            });
+            } catch (err) {
+                console.error("Erreur loadClients :", err);
+            }
+        }
+
+        function addClient() {
+            const name = document.getElementById("nameInput").value;
+            if (!name) {
+                alert("Veuillez entrer un nom");
+                return;
+            }
+
+            fetch("https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev/clients",{
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type" : "application/json"
+                },
+                body: JSON.stringify({name})
+            })
+            .then(res => res.json())
+            .then(client => {
+                const li = document.createElement("li");
+                li.textContent = client.id + " - " + client.name;
+                document.getElementById("clients").appendChild(li);
+                document.getElementById("nameInput").value = "";
+
+                loadClients();
+            })
+            .catch(err => console.error(err));
+        }
+
+        loadClients();
     </script>
 </body>
 </html>

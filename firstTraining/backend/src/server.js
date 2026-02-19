@@ -1,13 +1,23 @@
 const express = require("express");
+const cors = require("cors");
+
 const db = require("./database")
 const clientsRoutes = require("./routes/clients");
-const cors = require("cors");
 
 const app = express();
 
 app.use(express.json());
-app.use(cors());
-app.use("/clients", clientsRoutes)
+
+const corsOptions = {
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+};
+
+app.use(cors(corsOptions));
+
+app.use("/clients", clientsRoutes);
 
 app.get("/", (req, res) => {
     res.send("Backend is working");
