@@ -50,9 +50,28 @@
 
                         await loadClients();
                     })
+                    const delBtn = document.createElement("button");
+                    delBtn.textContent = "Supprimer";
+                    delBtn.addEventListener("click", async () => {
+                        const ok = confirm(`Supprimer le client #${client.id} ?`);
+                        if (!ok) return;
+
+                        const resDel = await fetch(`${API}/clients/${client.id}`, {
+                            method: "DELETE",
+                            credentials:"include",
+                        }); 
+
+                        if (!resDel.ok) {
+                            const err = await resDel.json().catch(() => ({}));
+                            alert(err.error ?? "Erreur Suppression");
+                            return; 
+                        }
+                        await loadClients();
+                    })
                     li.appendChild(label);
                     li.appendChild(input);
                     li.appendChild(btn);
+                    li.appendChild(delBtn);
                     list.appendChild(li);
                 });
             } catch (err) {
