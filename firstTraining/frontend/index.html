@@ -152,7 +152,7 @@
                 input.value = "";
                 showMessage(`Client ajouté ${check.value}`)   
                 await loadClients();
-            } catch {
+            } catch (err) {
                 showError(err.message);
             }
         }

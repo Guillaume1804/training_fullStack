@@ -2,6 +2,32 @@ const express = require("express");
 const router = express.Router();
 const db = require("../database");
 
+function validateClientName(raw) {
+    const name = String(raw ?? "").trim();
+
+    if (name.length === 0) {
+        return {ok: false, status: 400, error: "Name is required"};
+    }
+
+    if (name.length < 2) {
+        return {ok: false, status: 400, error: "Name must be at least 2 characters"};
+    }
+
+    if (name.length > 50) {
+        return {ok: false, status: 400, error: "Name is too long (max 50)"};
+    }
+
+    return {ok: true, value: name};
+}
+
+function parseId(raw) {
+    const id = Number(raw);
+    if (!Number.isInteger(id) || id <= 0) {
+        return {ok: false, status: 400, error: "Invalid ID"};
+    }
+    return {ok: true, value: id};
+}
+
 router.get("/", (req, res) => {
     db.all("SELECT * FROM clients", [], (err, rows) => {
         if (err) {
@@ -14,20 +40,15 @@ router.get("/", (req, res) => {
 
 
 router.post("/", (req, res) => {
-    const {name} = req.body;
-    
+    const check = validateClientName(req.body?.name);
+    if (!check.ok) return res.status(check.status).json({error: check.error});
+        
     db.run(
         "INSERT INTO clients (name) VALUES (?)",
-        [name],
+        [check.value],
         function(err) {
-            if (err) {
-                res.status(500).send(err.message); 
-            } else {
-                res.json({
-                    id: this.lastID,
-                    name: name
-                });
-            }
+            if (err) return res.status(500).json({error: err.message});
+            return res.status(201).json({id: this.lastID, name: check.value});
         }
     );
 });
@@ -50,26 +71,21 @@ router.delete("/:id", (req, res) => {
 });
 
 router.put("/:id", (req, res) => {
-    const id = Number(req.params.id);
-    const { name } = req.body;
+    const idCheck = parseId(req.params.id);
+    if (!idCheck.ok) return res.status(idCheck.status).json({error: idCheck.error});
 
-    if (Number.isNaN(id)) {
-        return res.status(400).json({error: "invalid id"});
-    }
-
-    if (!name || typeof name !== "string") {
-        return res.status(400).json({error : "name is required"});
-    }
+    const nameCheck = validateClientName(req.body?.name);
+    if (!nameCheck.ok) return res.status(nameCheck.status).json({error: nameCheck.error});
 
     db.run("UPDATE clients SET name = ? WHERE id = ?", 
-        [name, id],
+        [nameCheck.value, idCheck.value],
         function (err) {
             if (err) return res.status(500).json({error : err.message});
             // this.changes = nombre de lignes modifiés
             if (this.changes === 0) {
-                return res.status(404).res.json({error : "Client Not Found"});
+                return res.status(404).json({error : "Client Not Found"});
             }
-            res.json({updated : this.changes, id, name});
+            return res.json({id: idCheck.value, name: nameCheck.value});
         }
     );
 });
