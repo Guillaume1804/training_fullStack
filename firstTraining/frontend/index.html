@@ -12,23 +12,81 @@
 
     <input id="nameInput" placeholder="Nom du client">
     <button onclick="addClient()">Ajouter</button>
+    <div id="msg" style="margin: 10px 0; padding: 8px; display: none;"></div>
 
     <ul id="clients"></ul>
 
     <script>
-        const API = "https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev";
+        const API_BASE = "https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev";
+
+        async function apiFetch(path, options = {}) {
+            const res = await fetch(`${API_BASE}${path}`, {
+                credentials: "include",
+                ...options
+            });
+            let data = null;
+            const contentType = res.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
+                data = await res.json().catch(() => null);
+            } else {
+                const text = await res.text().catch(() => "");
+                data = text ? { message: text } : null;
+            }
+
+            if (!res.ok) {
+                const msg = data?.error || data?.message || `HTTP ${res.status}`;
+                throw new Error(msg);
+            }
+
+            return data
+        }
+
+        function validateClientName(raw) {
+            const name = (raw ?? "").trim();
+
+            if (!name) return {ok: false, error: "Le nom est obligatoire"};
+            if (name.length < 2) return {ok: false, error: "Le nom doit faire au moins deux caractéres."};
+            if (name.length > 50) return {ok: false, error: "Le nom ne doit pas dépasser 50 caractéres."};
+            if (!/^[\p{L} '-]+$/u.test(name)) return {ok: false, error: "Caractéres non autorisés dans le nom."};
+
+            return {ok: true, value: name};
+        }
+
+        function showMessage(text) {
+            const el = document.getElementById("msg");
+            el.style.display = "block";
+            el.style.border = "1px solid #ccc";
+            el.textContent = text;
+        }
+
+        function showError(text) {
+            const el = document.getElementById("msg");
+            el.style.display = "block";
+            el.style.border = "1px solid #d33";
+            el.textContent = "Erreur : " + text;
+        }
+
+        function clearMessage() {
+            const el = document.getElementById("msg");
+            el.style.display = "none";
+            el.textContent = "";
+        }
 
         async function loadClients() {
+            const msgEl = document.getElementById("msg");
+            const isHidden = getComputedStyle(msgEl).display === "none";
+            if (!isHidden) {
+                setTimeout(() => {
+                    clearMessage();
+                }, 5000);
+            }
+
             const list = document.getElementById("clients");
             list.innerHTML = "";
             try {
-                const res = await fetch(`${API}/clients`, {
-                    credentials: "include"
-                })
+                const clients = await apiFetch("/clients");
 
-                const data = await res.json();
-
-                data.forEach(client => {
+                clients.forEach(client => {
                     const li = document.createElement("li");
                     const label = document.createTextNode(`${client.id} - `)
                     const input = document.createElement("input");
@@ -36,37 +94,33 @@
                     const btn = document.createElement("button");
                     btn.textContent = "Modifier";
                     btn.addEventListener("click", async () => {
-                        const newName = input.value.trim();
-                        if (!newName) {
-                            alert("Nom vide");
-                            return;
-                        }
-                        await fetch(`${API}/clients/${client.id}`, {
+                        validateClientName(input.value);
+                        await apiFetch(`/clients/${client.id}`, {
                             method: "PUT",
-                            credentials:"include",
                             headers: {"Content-Type": "application/json"},
-                            body: JSON.stringify({name: newName}),
+                            body: JSON.stringify({name: input.value}),
                         });
-
+                        showMessage(`Client ${client.name} modifié en ${input.value}`);
                         await loadClients();
                     })
+                    // Voir modif 
                     const delBtn = document.createElement("button");
                     delBtn.textContent = "Supprimer";
                     delBtn.addEventListener("click", async () => {
                         const ok = confirm(`Supprimer le client #${client.id} ?`);
+                        let name = client.name;
                         if (!ok) return;
 
-                        const resDel = await fetch(`${API}/clients/${client.id}`, {
-                            method: "DELETE",
-                            credentials:"include",
-                        }); 
-
-                        if (!resDel.ok) {
-                            const err = await resDel.json().catch(() => ({}));
-                            alert(err.error ?? "Erreur Suppression");
-                            return; 
+                        try {
+                            await apiFetch(`/clients/${client.id}`, {
+                                method: "DELETE",
+                            }); 
+    
+                            showMessage(`Client Supprimé ${name}`);
+                            await loadClients();
+                        } catch (err) {
+                            showError(err.message)
                         }
-                        await loadClients();
                     })
                     li.appendChild(label);
                     li.appendChild(input);
@@ -75,35 +129,32 @@
                     list.appendChild(li);
                 });
             } catch (err) {
-                console.error("Erreur loadClients :", err);
+                showError(err.message)
             }
         }
 
-        function addClient() {
-            const name = document.getElementById("nameInput").value;
-            if (!name) {
-                alert("Veuillez entrer un nom");
+        async function addClient() {
+            const input = document.getElementById("nameInput");
+            const check = validateClientName(input.value);
+            if (!check.ok) {
+                showError(check.error);
                 return;
             }
 
-            fetch("https://fantastic-yodel-jv559x5x74xhp477-3000.app.github.dev/clients",{
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "Content-Type" : "application/json"
-                },
-                body: JSON.stringify({name})
-            })
-            .then(res => res.json())
-            .then(client => {
-                const li = document.createElement("li");
-                li.textContent = client.id + " - " + client.name;
-                document.getElementById("clients").appendChild(li);
-                document.getElementById("nameInput").value = "";
-
-                loadClients();
-            })
-            .catch(err => console.error(err));
+            try {
+                await apiFetch("/clients", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type" : "application/json"
+                    },
+                    body: JSON.stringify({name : check.value})
+                })
+                input.value = "";
+                showMessage(`Client ajouté ${check.value}`)   
+                await loadClients();
+            } catch {
+                showError(err.message);
+            }
         }
 
         loadClients();
